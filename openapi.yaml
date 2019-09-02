@@ -1,0 +1,57 @@
+openapi: "3.0.0"
+info:
+  version: 1.0.0
+  title: Age Test Service
+  license:
+    name: MIT
+servers:
+  - url: https://convenantgemeenten.nl/agetest
+paths:
+  /:
+    get:
+      description: Returns a boolean result to indicate if the age test was a success
+      summary: Executes an age test to validate if person satisfies a certain minimum age on a target date
+      operationId: agetest
+      responses:
+        '200':
+          description: agetest response
+          content:
+            '*/*':
+              schema:
+                type: boolean
+        default:
+          description: error payload
+          content:
+            'text/html':
+              schema:
+                $ref: '#/components/schemas/ErrorModel'
+    post:
+      operationId: agetest
+components:
+  schemas:
+    AgeTest:
+      type: object
+      properties:
+        person:
+          type: string
+        minimumAge:
+          type: integer
+          format: int32
+        targetDate:
+          type: string
+          format: date
+        executedOn:
+          type: string
+          format: datetime
+        result:
+          type: boolean
+    Error:
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: integer
+          format: int32
+        message:
+          type: string

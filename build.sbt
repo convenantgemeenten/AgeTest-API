@@ -5,8 +5,8 @@ import sbtcrossproject.CrossProject
 import sbtcrossproject.CrossPlugin.autoImport.{crossProject, CrossType}
 
 ThisBuild / organization := "nl.convenantgemeenten.agetest"
-ThisBuild / scalaVersion := "2.12.8"
-ThisBuild / crossScalaVersions := Seq("2.12.8")
+ThisBuild / scalaVersion := "2.12.10"
+ThisBuild / crossScalaVersions := Seq("2.12.10")
 ThisBuild / developers := List(
   Developer(
     "thijsbroersen",
@@ -38,7 +38,7 @@ lazy val commonSettings = Seq(
 
 ThisBuild / version := "0.0.1-SNAPSHOT"
 
-lazy val root = project
+lazy val ageTest = project
   .in(file("."))
   .settings(skip in publish := true)
   .aggregate(ns.jvm, ns.js, api, service)
@@ -50,7 +50,7 @@ lazy val ns: CrossProject = (crossProject(JSPlatform, JVMPlatform)
   .settings(
     name := "ns",
     libraryDependencies ++= nsDeps.value,
-    libraryDependencies += "nl.convenantgemeenten" %% "convenantgemeenten-ns" % "0.0.1-SNAPSHOT"
+    libraryDependencies += "nl.convenantgemeenten" %% "ns" % "0.0.1-SNAPSHOT"
   )
   .jvmSettings()
   .jsSettings(
@@ -65,15 +65,39 @@ lazy val api = (project in file("api"))
     libraryDependencies ++= apiDeps.value
   )
 
+lazy val app = (project in file("app")).enablePlugins(ScalaJSPlugin, ScalaJSWeb)
+  .dependsOn(ns.js)
+  .settings(
+    name := "app",
+    scalaJSUseMainModuleInitializer := true,
+    scalacOptions ++= Seq("-deprecation", "-feature", "-P:scalajs:sjsDefinedByDefault"),
+    scalaJSLinkerConfig ~= { _.withOptimizer(false) },
+    libraryDependencies ++= Seq(
+      "eu.l-space" %%% "lspace-parse-argonaut" % Version.lspace,
+      "com.raquo" %%% "domtypes" % "0.9.5",
+      "com.raquo" %%% "dombuilder" % "0.9.2",
+      "com.raquo" %%% "laminar" % "0.7.1"
+    ),
+    addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.1" cross CrossVersion.full)
+    // if using Scala 2.13.0, instead use
+    //        scalacOptions += "-Ymacro-annotations"
+  )
+
 lazy val service = (project in file("service"))
-  .enablePlugins(DockerPlugin).enablePlugins(JDKPackagerPlugin)
+  .enablePlugins(DockerPlugin).enablePlugins(SbtWeb).enablePlugins(JavaAppPackaging)
   .dependsOn(api)
   .settings(settings)
   .settings(skip in publish := true)
   .settings(
-    name := "service",
+    name := "agetest-service",
     libraryDependencies ++= serviceDeps.value,
-    mainClass in Compile := Some("convenantgemeenten.server.AgeTestService"),
+    scalaJSProjects := Seq(app),
+    pipelineStages in Assets := Seq(scalaJSPipeline),
+    pipelineStages := Seq(digest, gzip),
+    compile in Compile := ((compile in Compile) dependsOn scalaJSPipeline).value,
+    WebKeys.packagePrefix in Assets := "public/",
+    managedClasspath in Runtime += (packageBin in Assets).value,
+    mainClass in Compile := Some("convenantgemeenten.agetest.service.AgeTestService"),
     topLevelDirectory := None, // Don't add a root folder to the archive
     dockerBaseImage := "openjdk:11-jre",
     dockerUpdateLatest := true,
@@ -91,7 +115,7 @@ lazy val service = (project in file("service"))
     ),
     killTimeout := 5,
     termTimeout := 10,
-    dockerUsername := Some("broersen"),
+    dockerUsername := Some("convenantgemeenten"),
     maintainer in Docker := "Thijs Broersen",
     packageName in Docker := name.value
   )

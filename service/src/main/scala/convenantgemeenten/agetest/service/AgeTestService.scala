@@ -7,11 +7,14 @@ import com.twitter.finagle.http.{Request, Response}
 import com.twitter.finagle.{Http, Service}
 import com.twitter.server.TwitterServer
 import convenantgemeenten.agetest.endpoint._
-import io.finch.{Application, Bootstrap, Endpoint}
+import convenantgemeenten.agetest.ns.AgeTest
+import io.finch.{Application, Bootstrap, Endpoint, Text}
 import lspace._
-import lspace.codec.{ActiveContext, jsonld}
+import lspace.codec.json.jsonld.JsonLDEncoder
+import lspace.codec.{ActiveContext, json}
 import lspace.encode.{EncodeJson, EncodeJsonLD}
 import lspace.ns.vocab.schema
+import lspace.provider.detached.DetachedGraph
 import lspace.services.LService
 import lspace.services.codecs.{Application => LApplication}
 import monix.eval.Task
@@ -22,25 +25,34 @@ import shapeless.{:+:, CNil}
 import scala.concurrent.Await
 import scala.util.Try
 
-trait AgeTestService extends LService {
+trait AgeTestService extends LService {}
+
+object AgeTestService extends AgeTestService with TwitterServer {
+  lazy val ageGraph: Graph = Graph("ageGraph")
+  lazy val ageTestGraph: Graph = Graph("ageTestGraph")
+
   import lspace.codec.argonaut._
   implicit val ec: Scheduler = lspace.Implicits.Scheduler.global
 
-  def ageGraph: Graph
-  def ageTestGraph: Graph
+  implicit val encoderJsonLD = JsonLDEncoder.apply(nativeEncoder)
+  implicit val decoderJsonLD =
+    lspace.codec.json.jsonld.JsonLDDecoder.apply(DetachedGraph)(nativeDecoder)
+  implicit val decoderGraphQL = codec.graphql.Decoder
+  import lspace.Implicits.AsyncGuide.guide
+  implicit lazy val activeContext = AgeTestEndpoint.activeContext
 
-  lazy val agetestService =
-    AgeTestEndpoint(ageGraph, ageTestGraph, AgeTestEndpoint.activeContext)
-
-  implicit val encoder: lspace.codec.jsonld.Encoder =
-    lspace.codec.jsonld.Encoder(nativeEncoder)
+  lazy val agetestEndpoint =
+    AgeTestEndpoint(
+      ageGraph,
+      ageTestGraph,
+      "http://demo.convenantgemeenten.nl/agetest/") //TODO: get from config
 
   object UtilsApi extends Endpoint.Module[IO] {
     import io.finch._
 
     def reset(): Task[Unit] =
       for {
-//      SampleData.loadSample(graph).forkAndForget.runToFuture(monix.execution.Scheduler.global)
+        //      SampleData.loadSample(graph).forkAndForget.runToFuture(monix.execution.Scheduler.global)
         _ <- { //partnerdataset
           import com.github.tototoshi.csv._
 
@@ -101,28 +113,24 @@ trait AgeTestService extends LService {
     def custompath(name: String) = path(name)
     def purge() = ageTestGraph.purge
     val clearGraphs: Endpoint[IO, String] = get(path("clear")) {
-      purge.forkAndForget
+      purge.startAndForget
         .runToFuture(monix.execution.Scheduler.global)
       Ok("clearing now")
     }
 
-    val persist: Endpoint[IO, Unit] = get("_persist") {
+    val persist: Endpoint[IO, Unit] = get("persist") {
       scribe.info("persisting all graphs")
       ageTestGraph.persist
       io.finch.NoContent[Unit]
     }
   }
 
-//  SampleData.loadSample(graph).runSyncUnsafe()(monix.execution.Scheduler.global, CanBlock.permit)
+  //  SampleData.loadSample(graph).runSyncUnsafe()(monix.execution.Scheduler.global, CanBlock.permit)
   UtilsApi.reset.runToFuture
-//  println(SigmaJsVisualizer.visualizeGraph(graph))
-
+  //  println(SigmaJsVisualizer.visualizeGraph(graph))
   lazy val service: Service[Request, Response] = {
 
     import lspace.services.codecs.Encode._
-    implicit val encoder = jsonld.Encoder.apply(nativeEncoder)
-    implicit val activeContext = ActiveContext()
-
     import EncodeJson._
     import EncodeJsonLD._
 
@@ -130,53 +138,51 @@ trait AgeTestService extends LService {
       .configure(enableMethodNotAllowed = true,
                  enableUnsupportedMediaType = true)
       .serve[LApplication.JsonLD :+: Application.Json :+: CNil](
-        agetestService.api)
+        agetestEndpoint.api)
       .serve[LApplication.JsonLD :+: Application.Json :+: CNil](
+        agetestEndpoint.graphql)
+      .serve[LApplication.JsonLD :+: Application.Json :+: CNil](
+        agetestEndpoint.librarian)
+      .serve[Text.Plain :+: CNil](
         UtilsApi.clearGraphs :+: UtilsApi.resetGraphs :+: UtilsApi.persist)
       .toService
   }
-}
 
-object AgeTestService {
-  def create(port: Int) = new AgeTestService with TwitterServer {
+  def main(): Unit = {
+    val server = Http.server
+    //      .configured(Stats(statsReceiver))
+      .serve(
+        ":8080",
+        service
+      )
 
-    lazy val ageGraph: Graph = Graph("ageGraph")
-    lazy val ageTestGraph: Graph = Graph("ageTestGraph")
-
-    def main(): Unit = {
-      val server = Http.server
-      //      .configured(Stats(statsReceiver))
-        .serve(
-          s":$port",
-          service
-        )
-
-      import scala.concurrent.duration._
-      onExit {
-        println(s"close age-test-server")
-        Await.ready(
-          Task
-            .sequence(
-              Seq(
-                Task.gatherUnordered(
-                  Seq(
-                    ageGraph.persist,
-                    ageTestGraph.persist
-                  )),
-                Task.gatherUnordered(
-                  Seq(
-                    ageGraph.close,
-                    ageTestGraph.close
-                  ))
-              ))
-            .runToFuture(monix.execution.Scheduler.global),
-          20 seconds
-        )
-
-        server.close()
-      }
-
-      com.twitter.util.Await.ready(adminHttpServer)
+    import lspace.services.util._
+    import scala.concurrent.duration._
+    onExit {
+      println(s"close age-test-server")
+      Await.ready(
+        Task
+          .sequence(
+            Seq(
+              Task.gatherUnordered(
+                Seq(
+                  ageGraph.persist,
+                  ageTestGraph.persist
+                )),
+              Task.gatherUnordered(
+                Seq(
+                  ageGraph.close,
+                  ageTestGraph.close
+                ))
+            ))
+          .runToFuture(monix.execution.Scheduler.global),
+        20 seconds
+      )
+      close(com.twitter.util.Duration.fromSeconds(20))
+      server.close(com.twitter.util.Duration.fromSeconds(20))
+      adminHttpServer.close(com.twitter.util.Duration.fromSeconds(20))
     }
+
+    com.twitter.util.Await.ready(adminHttpServer)
   }
 }

@@ -1,12 +1,13 @@
 package convenantgemeenten.agetest.service
 
-import lspace.services.{LService, LServiceSpec}
+import lspace.services.LService
+import org.scalatest.BeforeAndAfter
+
+import scala.concurrent.Future
 
 class AgeTestServiceSpec
     extends lspace.services.LServiceSpec
-    with BeforeAndAfterAll {
-
-  implicit val lservice: LService = AgeTestService.create(80)
+    with BeforeAndAfter {
 
   import lspace.codec.argonaut._
   val encoder = lspace.codec.json.jsonld.Encoder(nativeEncoder)

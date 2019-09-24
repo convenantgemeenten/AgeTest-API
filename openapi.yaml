@@ -8,30 +8,62 @@ servers:
   - url: https://convenantgemeenten.nl/agetest
 paths:
   /:
-    get:
+    post:
+      operationId: create
       description: Returns a boolean result to indicate if the age test was a success
       summary: Executes an age test to validate if person satisfies a certain minimum age on a target date
-      operationId: agetest
+      requestBody:
+        description: Callback payload
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/AgeTestRequest'
       responses:
         '200':
           description: agetest response
           content:
             '*/*':
               schema:
-                type: boolean
+                "$ref": "#/components/schemas/AgeTest"
         default:
           description: error payload
           content:
             'text/html':
               schema:
                 $ref: '#/components/schemas/ErrorModel'
-    post:
-      operationId: agetest
+    get:
+      operationId: list
+      description: Query registered or executed agetests
+      responses:
+        '200':
+          description: List of agetests
+          content:
+            'application/json':
+              schema:
+                type: "array"
+                items: {
+                  $ref: "#/components/schemas/AgeTest"
+                }
 components:
   schemas:
+    AgeTestRequest:
+      type: object
+      properties:
+        id:
+          type: string
+        person:
+          type: string
+        minimumAge:
+          type: integer
+          format: int32
+        targetDate:
+          type: string
+          format: date
     AgeTest:
       type: object
       properties:
+        id:
+          type: string
         person:
           type: string
         minimumAge:

@@ -82,7 +82,7 @@ object AgeTest
         .getOrElse(DetachedGraph.nodes.create(ontology))
       person <- DetachedGraph.nodes.upsert(cc.person, Set[String]())
       _ <- node --- keys.person --> person
-      _ <- node --- keys.minimumAge --> cc.requiredMinAge
+      _ <- node --- keys.minimumAge --> cc.minimumAge
       _ <- cc.targetDate
         .map(node --- keys.targetDate --> _)
         .getOrElse(Task.unit)
@@ -96,7 +96,7 @@ object AgeTest
   }
 }
 case class AgeTest(person: String,
-                   requiredMinAge: Int,
+                   minimumAge: Int,
                    targetDate: Option[LocalDate] = None,
                    executedOn: Option[Instant] = None,
                    result: Option[Boolean] = None,

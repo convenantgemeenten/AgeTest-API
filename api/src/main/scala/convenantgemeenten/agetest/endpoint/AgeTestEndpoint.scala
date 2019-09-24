@@ -108,7 +108,7 @@ class AgeTestEndpoint[Json](ageGraph: Graph,
                          P.lt(
                            ageTest.targetDate
                              .getOrElse(LocalDate.now())
-                             .minusYears(ageTest.requiredMinAge)))
+                             .minusYears(ageTest.minimumAge)))
                     .head()
                     .withGraph(ageGraph)
                     .headOptionF

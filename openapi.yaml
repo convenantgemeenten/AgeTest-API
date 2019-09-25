@@ -5,7 +5,7 @@ info:
   license:
     name: MIT
 servers:
-  - url: https://convenantgemeenten.nl/agetest
+  - url: https://demo.convenantgemeenten.nl/agetest
 paths:
   /:
     post:
@@ -50,7 +50,7 @@ components:
         minimumAge:
           type: integer
           format: int32
-        targetDate:
+        validOn:
           type: string
           format: date
     AgeTest:
@@ -63,7 +63,7 @@ components:
         minimumAge:
           type: integer
           format: int32
-        targetDate:
+        validOn:
           type: string
           format: date
         executedOn:

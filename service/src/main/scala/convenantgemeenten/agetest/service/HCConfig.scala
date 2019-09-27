@@ -7,10 +7,10 @@ object HCConfig {
   private val baseconfigspath = Option(System.getenv("AGETEST_CONFIGS_PATH"))
   val hcConfig = (if (baseconfigspath.exists(_.nonEmpty)) {
                     ConfigSource
-                      .file(baseconfigspath + "secrets.conf")
+                      .file(baseconfigspath.get + "secrets.conf")
                       .optional
-                      .withFallback(
-                        ConfigSource.file(baseconfigspath + "application.conf"))
+                      .withFallback(ConfigSource.file(
+                        baseconfigspath.get + "application.conf"))
                       .optional
                       .withFallback(ConfigSource.resources("secrets.conf"))
                       .optional

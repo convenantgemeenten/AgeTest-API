@@ -10,7 +10,7 @@ paths:
   /:
     post:
       operationId: create
-      description: Returns a boolean result to indicate if the age test was a success
+      description: Returns a boolean result to indicate if the age test is positive
       summary: Executes an age test to validate if person satisfies a certain minimum age on a target date
       requestBody:
         description: Callback payload

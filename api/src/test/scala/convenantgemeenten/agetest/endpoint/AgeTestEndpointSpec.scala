@@ -33,8 +33,8 @@ class AgeTestEndpointSpec
   import lspace.encode.EncodeJsonLD._
   import lspace.services.codecs.Encode._
 
-  lazy val ageGraph: Graph = MemGraph("ApiServiceSpec")
-  lazy val ageTestGraph: Graph = MemGraph("ApiServiceSpec")
+  lazy val dataGraph: Graph = MemGraph("ApiServiceSpec")
+  lazy val testsDataGraph: Graph = MemGraph("ApiServiceSpec")
   implicit val encoderJsonLD = JsonLDEncoder.apply(nativeEncoder)
   implicit val decoderJsonLD =
     lspace.codec.json.jsonld.JsonLDDecoder.apply(DetachedGraph)(nativeDecoder)
@@ -42,21 +42,20 @@ class AgeTestEndpointSpec
   import lspace.Implicits.AsyncGuide.guide
   implicit lazy val activeContext = AgeTestEndpoint.activeContext
 
-  val agetestEndpoint =
-    AgeTestEndpoint(ageGraph, ageTestGraph, "http://example.org/agetests/")
+  val testsEndpoint =
+    AgeTestEndpoint(dataGraph, testsDataGraph, "http://example.org/agetests/")
 
   lazy val service: com.twitter.finagle.Service[Request, Response] = Bootstrap
     .configure(enableMethodNotAllowed = true, enableUnsupportedMediaType = true)
+    .serve[LApplication.JsonLD :+: Application.Json :+: CNil](testsEndpoint.api)
     .serve[LApplication.JsonLD :+: Application.Json :+: CNil](
-      agetestEndpoint.api)
+      testsEndpoint.graphql)
     .serve[LApplication.JsonLD :+: Application.Json :+: CNil](
-      agetestEndpoint.graphql)
-    .serve[LApplication.JsonLD :+: Application.Json :+: CNil](
-      agetestEndpoint.librarian)
+      testsEndpoint.librarian)
     .toService
 
   lazy val initTask = (for {
-    sample <- SampleGraph.loadSocial(ageGraph)
+    sample <- SampleGraph.loadSocial(dataGraph)
     _ <- for {
       _ <- sample.persons.Yoshio.person --- schema.birthDate --> sample.persons.Yoshio.birthdate.to.value
     } yield ()
@@ -78,7 +77,7 @@ class AgeTestEndpointSpec
         val input = Input
           .post("")
           .withBody[LApplication.JsonLD](node)
-        agetestEndpoint
+        testsEndpoint
           .create(input)
           .awaitOutput()
           .map { output =>
@@ -100,7 +99,7 @@ class AgeTestEndpointSpec
         val input = Input
           .post("")
           .withBody[LApplication.JsonLD](node)
-        agetestEndpoint
+        testsEndpoint
           .create(input)
           .awaitOutput()
           .map { output =>
@@ -122,7 +121,7 @@ class AgeTestEndpointSpec
         val input = Input
           .post("")
           .withBody[LApplication.JsonLD](node)
-        agetestEndpoint
+        testsEndpoint
           .create(input)
           .awaitOutput()
           .map { output =>
@@ -163,7 +162,7 @@ class AgeTestEndpointSpec
         test = AgeTest(yoshio.iri, 65, Some(LocalDate.parse("2019-06-28")))
         node <- test.toNode
         input = Input
-          .post("")
+          .post("/")
           .withBody[LApplication.JsonLD](node)
         _ <- Task
           .fromFuture(service(input.request))

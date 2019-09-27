@@ -54,8 +54,8 @@ object AgeTest
       : TypedProperty[Boolean] = result as Label.D.`@boolean`
   }
   override lazy val properties
-    : List[Property] = keys.person.property :: keys.minimumAge.property :: keys.targetDate.property :: keys.result.property :: schema.Thing.properties
-  trait Properties {
+    : List[Property] = keys.person.property :: keys.minimumAge.property :: keys.targetDate.property :: keys.result.property :: Test.properties
+  trait Properties extends Test.Properties {
     lazy val person = keys.person
     lazy val result = keys.result
     lazy val minimumAge = keys.minimumAge

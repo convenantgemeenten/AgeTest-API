@@ -2,9 +2,8 @@ package convenantgemeenten.agetest.endpoint
 
 import java.time.{Instant, LocalDate}
 
-import cats.Applicative
 import cats.effect.IO
-import com.twitter.finagle.Filter
+import com.softwaremill.sttp.okhttp.monix.OkHttpMonixBackend
 import convenantgemeenten.agetest.ns.AgeTest
 import io.finch._
 import lspace.Label.D._
@@ -14,7 +13,6 @@ import lspace.codec.json.jsonld.JsonLDDecoder
 import lspace.decode.{DecodeJson, DecodeJsonLD}
 import lspace.librarian.task.AsyncGuide
 import lspace.ns.vocab.schema
-import lspace.provider.detached.DetachedGraph
 import lspace.services.rest.endpoints.util.MatchParam
 import lspace.services.rest.endpoints.{GraphqlApi, LabeledNodeApi, LibrarianApi}
 import monix.eval.Task
@@ -36,7 +34,7 @@ object AgeTestEndpoint {
     `@prefix` = ListMap(
       "person" -> AgeTest.keys.person.iri,
       "minimumAge" -> AgeTest.keys.minimumAge.iri,
-      "targetDate" -> AgeTest.keys.targetDate.iri,
+      "validOn" -> AgeTest.keys.targetDate.iri,
       "executedOn" -> AgeTest.keys.executedOn.iri,
       "result" -> AgeTest.keys.result.iri
     ),
@@ -76,10 +74,6 @@ class AgeTestEndpoint[Json](ageGraph: Graph,
   lazy val librarianApi = LibrarianApi(ageTestGraph)
   lazy val graphQLApi = GraphqlApi(ageTestGraph)
 
-  /**
-    * tests if a kinsman path exists between two
-    * TODO: update graph with latest (remote) data
-    */
   lazy val create: Endpoint[IO, Node] = {
     implicit val bodyJsonldTyped = DecodeJsonLD
       .bodyJsonldTyped(AgeTest.ontology, AgeTest.fromNode)
@@ -101,18 +95,11 @@ class AgeTestEndpoint[Json](ageGraph: Graph,
                     new Exception("result or id should not yet be defined")))
               case ageTest: AgeTest =>
                 val now = Instant.now()
-                for {
-                  result <- g.N
-                    .hasIri(ageTest.person)
-                    .has(schema.birthDate,
-                         P.lt(
-                           ageTest.targetDate
-                             .getOrElse(LocalDate.now())
-                             .minusYears(ageTest.minimumAge)))
-                    .head()
-                    .withGraph(ageGraph)
-                    .headOptionF
-                    .map(_.isDefined)
+                (for {
+                  result <- executeTest(ageTest)
+                    .onErrorHandle { f =>
+                      false
+                    }
                   testAsNode <- ageTest
                     .copy(executedOn = Some(now),
                           result = Some(result),
@@ -123,13 +110,29 @@ class AgeTestEndpoint[Json](ageGraph: Graph,
                     .toNode
                   persistedNode <- ageTestGraph.nodes ++ testAsNode
                 } yield {
-                  Ok(persistedNode)
+                  Ok(persistedNode).withHeader("Location" -> persistedNode.iri)
+                }).onErrorHandle {
+                  case f: Exception => InternalServerError(f)
                 }
               case _ =>
                 Task.now(NotAcceptable(new Exception("invalid parameters")))
             }
             .to[IO]
       }
+  }
+
+  def executeTest(ageTest: AgeTest): Task[Boolean] = {
+    g.N
+      .hasIri(ageTest.person)
+      .has(schema.birthDate,
+           P.lt(
+             ageTest.targetDate
+               .getOrElse(LocalDate.now())
+               .minusYears(ageTest.minimumAge)))
+      .head()
+      .withGraph(ageGraph)
+      .headOptionF
+      .map(_.isDefined)
   }
 
   lazy val api = nodeApi.context :+: nodeApi.byId :+: nodeApi.list :+: create :+: nodeApi.removeById

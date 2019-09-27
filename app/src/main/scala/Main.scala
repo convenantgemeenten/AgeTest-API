@@ -4,6 +4,7 @@ object Main extends App {
 
   val openapiViewer =
     """
+      |<!DOCTYPE html>
       |<html>
       |  <head>
       |    <title>ReDoc</title>
@@ -37,6 +38,4 @@ object Main extends App {
   wrapper.ref.contentWindow.document.open("text/html", "replace")
   wrapper.ref.contentWindow.document.write(openapiViewer)
   wrapper.ref.contentWindow.document.close()
-
-//  org.scalajs.dom.document.write(openapiViewer)
 }

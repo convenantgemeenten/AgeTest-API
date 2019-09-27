@@ -71,7 +71,7 @@ class AgeTestEndpointSpec
       (for {
         sample <- initTask
         yoshio = sample.persons.Yoshio.person
-        test = AgeTest(yoshio.iri, 18, Some(LocalDate.parse("2019-06-28")))
+        test = AgeTest(yoshio.iri, Some(LocalDate.parse("2019-06-28"))).min(18)
         node <- test.toNode
       } yield {
         val input = Input
@@ -93,7 +93,7 @@ class AgeTestEndpointSpec
       (for {
         sample <- initTask
         yoshio = sample.persons.Yoshio.person
-        test = AgeTest(yoshio.iri, 18, Some(LocalDate.parse("1855-05-18")))
+        test = AgeTest(yoshio.iri, LocalDate.parse("1855-05-18")).min(18)
         node <- test.toNode
       } yield {
         val input = Input
@@ -115,7 +115,7 @@ class AgeTestEndpointSpec
       (for {
         sample <- initTask
         yoshio = sample.persons.Yoshio.person
-        test = AgeTest(yoshio.iri, 65, Some(LocalDate.parse("2019-06-28")))
+        test = AgeTest(yoshio.iri, Some(LocalDate.parse("2019-06-28"))).min(65)
         node <- test.toNode
       } yield {
         val input = Input
@@ -133,6 +133,52 @@ class AgeTestEndpointSpec
           .getOrElse(fail("endpoint does not match"))
       }).runToFuture
     }
+    "test negative for an age between 65 and 75 for Yoshio" in {
+      (for {
+        sample <- initTask
+        yoshio = sample.persons.Yoshio.person
+        test = AgeTest(yoshio.iri, Some(LocalDate.parse("2019-06-28")))
+          .between(65, 75)
+        node <- test.toNode
+      } yield {
+        val input = Input
+          .post("")
+          .withBody[LApplication.JsonLD](node)
+        testsEndpoint
+          .create(input)
+          .awaitOutput()
+          .map { output =>
+            output.isRight shouldBe true
+            val response = output.right.get
+            response.status shouldBe Status.Ok
+            response.value.out(AgeTest.keys.resultBoolean).head shouldBe false
+          }
+          .getOrElse(fail("endpoint does not match"))
+      }).runToFuture
+    }
+    "test positive for an age between 15 and 25 for Yoshio" in {
+      (for {
+        sample <- initTask
+        yoshio = sample.persons.Yoshio.person
+        test = AgeTest(yoshio.iri, LocalDate.parse("2016-06-28")).between(15,
+                                                                          25)
+        node <- test.toNode
+      } yield {
+        val input = Input
+          .post("")
+          .withBody[LApplication.JsonLD](node)
+        testsEndpoint
+          .create(input)
+          .awaitOutput()
+          .map { output =>
+            output.isRight shouldBe true
+            val response = output.right.get
+            response.status shouldBe Status.Ok
+            response.value.out(AgeTest.keys.resultBoolean).head shouldBe true
+          }
+          .getOrElse(fail("endpoint does not match"))
+      }).runToFuture
+    }
   }
   import lspace.services.util._
   "A compiled AgeTestEndpoint" should {
@@ -140,7 +186,7 @@ class AgeTestEndpointSpec
       (for {
         sample <- initTask
         yoshio = sample.persons.Yoshio.person
-        test = AgeTest(yoshio.iri, 18, Some(LocalDate.parse("2019-06-28")))
+        test = AgeTest(yoshio.iri, Some(LocalDate.parse("2019-06-28"))).min(18)
         node <- test.toNode
         input = Input
           .post("/")
@@ -159,7 +205,7 @@ class AgeTestEndpointSpec
       (for {
         sample <- initTask
         yoshio = sample.persons.Yoshio.person
-        test = AgeTest(yoshio.iri, 65, Some(LocalDate.parse("2019-06-28")))
+        test = AgeTest(yoshio.iri, Some(LocalDate.parse("2019-06-28"))).min(65)
         node <- test.toNode
         input = Input
           .post("/")

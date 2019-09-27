@@ -34,6 +34,7 @@ object AgeTestEndpoint {
     `@prefix` = ListMap(
       "person" -> AgeTest.keys.person.iri,
       "minimumAge" -> AgeTest.keys.minimumAge.iri,
+      "maximumAge" -> AgeTest.keys.maximumAge.iri,
       "validOn" -> AgeTest.keys.targetDate.iri,
       "executedOn" -> AgeTest.keys.executedOn.iri,
       "result" -> AgeTest.keys.result.iri
@@ -45,6 +46,9 @@ object AgeTestEndpoint {
       AgeTest.keys.minimumAge.iri -> ActiveProperty(
         `@type` = `@int` :: Nil,
         property = AgeTest.keys.minimumAge)(),
+      AgeTest.keys.maximumAge.iri -> ActiveProperty(
+        `@type` = `@int` :: Nil,
+        property = AgeTest.keys.maximumAge)(),
       AgeTest.keys.targetDate.iri -> ActiveProperty(
         `@type` = `@date` :: Nil,
         property = AgeTest.keys.targetDate)(),
@@ -93,6 +97,11 @@ class AgeTestEndpoint[Json](ageGraph: Graph,
                 Task.now(
                   NotAcceptable(
                     new Exception("result or id should not yet be defined")))
+              case ageTest: AgeTest
+                  if ageTest.minimumAge.isEmpty && ageTest.maximumAge.isEmpty =>
+                Task.now(
+                  NotAcceptable(new Exception(
+                    "minimumAge and/or maximumAge must be defined")))
               case ageTest: AgeTest =>
                 val now = Instant.now()
                 (for {
@@ -122,13 +131,26 @@ class AgeTestEndpoint[Json](ageGraph: Graph,
   }
 
   def executeTest(ageTest: AgeTest): Task[Boolean] = {
+    val targetDate = ageTest.targetDate
+      .getOrElse(LocalDate.now())
     g.N
       .hasIri(ageTest.person)
-      .has(schema.birthDate,
-           P.lt(
-             ageTest.targetDate
-               .getOrElse(LocalDate.now())
-               .minusYears(ageTest.minimumAge)))
+      .has(
+        schema.birthDate,
+        (ageTest.minimumAge, ageTest.maximumAge) match {
+          case (Some(min), Some(max)) =>
+            P.between(targetDate
+                        .minusYears(max),
+                      targetDate
+                        .minusYears(min))
+          case (Some(min), None) =>
+            P.lte(targetDate
+              .minusYears(min))
+          case (None, Some(max)) =>
+            P.gt(targetDate
+              .minusYears(max))
+        }
+      )
       .head()
       .withGraph(ageGraph)
       .headOptionF

@@ -36,6 +36,15 @@ object AgeTest
           `@range` = () => `@int` :: Nil)
     lazy val minimumAgeInt = minimumAge as `@int`
 
+    object maximumAge
+        extends PropertyDef(
+          ontology.iri + "/maximumAge",
+          label = "maximumAge",
+          `@extends` = () =>
+            Property("https://ns.convenantgemeenten.nl/maximumAge") :: Nil,
+          `@range` = () => `@int` :: Nil)
+    lazy val maximumAgeInt = maximumAge as `@int`
+
     object targetDate
         extends PropertyDef("https://ns.convenantgemeenten.nl/targetDate",
                             label = "targetDate",
@@ -54,11 +63,12 @@ object AgeTest
       : TypedProperty[Boolean] = result as Label.D.`@boolean`
   }
   override lazy val properties
-    : List[Property] = keys.person.property :: keys.minimumAge.property :: keys.targetDate.property :: keys.result.property :: Test.properties
+    : List[Property] = keys.person.property :: keys.minimumAge.property :: keys.maximumAge.property :: keys.targetDate.property :: keys.result.property :: Test.properties
   trait Properties extends Test.Properties {
     lazy val person = keys.person
     lazy val result = keys.result
     lazy val minimumAge = keys.minimumAge
+    lazy val maximumAge = keys.maximumAge
     lazy val targetDate = keys.targetDate
     lazy val targetDateDate = keys.targetDateDate
     lazy val resultBoolean = keys.resultBoolean
@@ -67,7 +77,8 @@ object AgeTest
   def fromNode(node: Node): AgeTest = {
     AgeTest(
       node.outE(keys.person.property).head.to.iri,
-      node.out(keys.minimumAgeInt).head,
+      node.out(keys.minimumAgeInt).headOption,
+      node.out(keys.maximumAgeInt).headOption,
       node.out(keys.targetDateDate).headOption,
       node.out(keys.executedOn as lspace.Label.D.`@datetime`).headOption,
       node.out(keys.resultBoolean).headOption,
@@ -82,7 +93,12 @@ object AgeTest
         .getOrElse(DetachedGraph.nodes.create(ontology))
       person <- DetachedGraph.nodes.upsert(cc.person, Set[String]())
       _ <- node --- keys.person --> person
-      _ <- node --- keys.minimumAge --> cc.minimumAge
+      _ <- cc.minimumAge
+        .map(node --- keys.minimumAge --> _)
+        .getOrElse(Task.unit)
+      _ <- cc.maximumAge
+        .map(node --- keys.maximumAge --> _)
+        .getOrElse(Task.unit)
       _ <- cc.targetDate
         .map(node --- keys.targetDate --> _)
         .getOrElse(Task.unit)
@@ -94,12 +110,46 @@ object AgeTest
         .getOrElse(Task.unit)
     } yield node
   }
+
+  trait AgeTestFactory {
+    def min(age: Int): AgeTest
+    def max(age: Int): AgeTest
+    def between(minAge: Int, maxAge: Int): AgeTest
+  }
+  def apply(person: String,
+            targetDate: Option[LocalDate] = None): AgeTestFactory =
+    new AgeTestFactory {
+      def min(age: Int): AgeTest =
+        new AgeTest(person, Some(age), None, targetDate)
+      def max(age: Int): AgeTest =
+        new AgeTest(person, None, Some(age), targetDate)
+      def between(minAge: Int, maxAge: Int): AgeTest =
+        new AgeTest(person, Some(minAge), Some(maxAge), targetDate)
+    }
+  def apply(person: String, targetDate: LocalDate): AgeTestFactory =
+    apply(person, Some(targetDate))
+
+  def apply(person: String,
+            minimumAge: Option[Int],
+            maximumAge: Option[Int],
+            targetDate: Option[LocalDate],
+            executedOn: Option[Instant],
+            result: Option[Boolean],
+            id: Option[String]): AgeTest =
+    new AgeTest(person,
+                minimumAge,
+                maximumAge,
+                targetDate,
+                executedOn,
+                result,
+                id)
 }
-case class AgeTest(person: String,
-                   minimumAge: Int,
-                   targetDate: Option[LocalDate] = None,
-                   executedOn: Option[Instant] = None,
-                   result: Option[Boolean] = None,
-                   id: Option[String] = None) {
+case class AgeTest private (person: String,
+                            minimumAge: Option[Int],
+                            maximumAge: Option[Int],
+                            targetDate: Option[LocalDate] = None,
+                            executedOn: Option[Instant] = None,
+                            result: Option[Boolean] = None,
+                            id: Option[String] = None) {
   lazy val toNode: Task[Node] = this
 }

@@ -89,7 +89,6 @@ object HaalCentraal {
 
   def haalcentraal_get_birthDate_request(ageTest: AgeTest): Task[Boolean] = {
     val bsn = ageTest.person.reverse.takeWhile(_ != '_').reverse
-    println(s"new test $ageTest")
     val request = sttp
       .get(uri"${hcConfig.url}/ingeschrevenpersonen/$bsn/?fields=geboorte")
       .header("x-api-key", hcConfig.xApiKey.value, true)
@@ -113,15 +112,47 @@ object HaalCentraal {
                 Task.raiseError(new Exception(error))
             }).map(HaalCentraal.parse)
           }.map { geboorte =>
-            println(s"result: $geboorte")
-            println(
-              geboorte.flatMap(
-                _.datum.flatMap(_.datum.map(_.plusYears(ageTest.minimumAge)))))
-            geboorte.exists(
-              geboorte =>
-                geboorte.datum.exists(datum =>
-                  datum.datum.exists(_.plusYears(ageTest.minimumAge)
-                    .isBefore(ageTest.targetDate.getOrElse(LocalDate.now())))))
+            val targetDate = ageTest.targetDate.getOrElse(LocalDate.now())
+            (ageTest.minimumAge, ageTest.maximumAge) match {
+              case (Some(min), Some(max)) =>
+                geboorte.exists(
+                  geboorte =>
+                    geboorte.datum.exists(
+                      datum =>
+                        datum.datum.exists(
+                          date =>
+                            (date
+                              .plusYears(min)
+                              .isEqual(targetDate) || date
+                              .plusYears(min)
+                              .isBefore(targetDate)) &&
+                              date
+                                .plusYears(max)
+                                .isAfter(targetDate))))
+              case (Some(min), None) =>
+                geboorte.exists(
+                  geboorte =>
+                    geboorte.datum.exists(
+                      datum =>
+                        datum.datum.exists(
+                          date =>
+                            date
+                              .plusYears(min)
+                              .isEqual(targetDate) || date
+                              .plusYears(min)
+                              .isBefore(targetDate))))
+              case (None, Some(max)) =>
+                geboorte.exists(
+                  geboorte =>
+                    geboorte.datum.exists(
+                      datum =>
+                        datum.datum.exists(date =>
+                          date
+                            .plusYears(max)
+                            .isAfter(targetDate))))
+              case _ => false
+            }
+
           }
         }
       }

@@ -50,7 +50,7 @@ lazy val ns: CrossProject = (crossProject(JSPlatform, JVMPlatform)
   .settings(
     name := "ns",
     libraryDependencies ++= nsDeps.value,
-    libraryDependencies += "nl.convenantgemeenten" %% "ns" % "0.0.1-SNAPSHOT"
+    libraryDependencies += "nl.convenantgemeenten.namespace" %% "ns" % "0.0.2-SNAPSHOT"
   )
   .jvmSettings()
   .jsSettings(
@@ -71,7 +71,7 @@ lazy val app = (project in file("app")).enablePlugins(ScalaJSPlugin, ScalaJSWeb)
     name := "app",
     scalaJSUseMainModuleInitializer := true,
     scalacOptions ++= Seq("-deprecation", "-feature", "-P:scalajs:sjsDefinedByDefault"),
-    scalaJSLinkerConfig ~= { _.withOptimizer(false) },
+//    scalaJSLinkerConfig ~= { _.withOptimizer(false) },
     libraryDependencies ++= Seq(
       "eu.l-space" %%% "lspace-parse-argonaut" % Version.lspace,
       "com.raquo" %%% "domtypes" % "0.9.5",
@@ -89,7 +89,7 @@ lazy val service = (project in file("service"))
   .settings(settings)
   .settings(skip in publish := true)
   .settings(
-    name := "agetest-service",
+    name := "service",
     libraryDependencies ++= serviceDeps.value,
     scalaJSProjects := Seq(app),
     pipelineStages in Assets := Seq(scalaJSPipeline),
@@ -97,6 +97,8 @@ lazy val service = (project in file("service"))
     compile in Compile := ((compile in Compile) dependsOn scalaJSPipeline).value,
     WebKeys.packagePrefix in Assets := "public/",
     managedClasspath in Runtime += (packageBin in Assets).value,
+    Compile / run / fork := true,
+//    unmanagedClasspath in Runtime += (packageBin in Assets).value,
     mainClass in Compile := Some("convenantgemeenten.agetest.service.AgeTestService"),
     topLevelDirectory := None, // Don't add a root folder to the archive
     dockerBaseImage := "openjdk:11-jre",
@@ -117,7 +119,7 @@ lazy val service = (project in file("service"))
     termTimeout := 10,
     dockerUsername := Some("convenantgemeenten"),
     maintainer in Docker := "Thijs Broersen",
-    packageName in Docker := name.value
+    packageName in Docker := "agetest-" + name.value
   )
 
 val makeSettingsYml = Def.task {
@@ -138,14 +140,14 @@ lazy val site = (project in file("site"))
     scalacOptions in Tut := compilerOptions
   )
   .settings(
-    micrositeName := "Agetest-API",
+    micrositeName := "AgeTest-API",
     micrositeDescription := "Services for performing assertions on someones age.",
     micrositeDataDirectory := (resourceManaged in Compile).value / "site" / "data",
-    micrositeBaseUrl := "/Agetest-API",
+    micrositeBaseUrl := "/AgeTest-API",
     micrositeAuthor := "Thijs Broersen",
-    micrositeHomepage := "https://thijsbroersen.github.io/Agetest-API",
+    micrositeHomepage := "https://convenantgemeenten.github.io/AgeTest-API",
     micrositeGithubOwner := "ThijsBroersen",
-    micrositeGithubRepo := "Agetest-API",
+    micrositeGithubRepo := "AgeTest-API",
     micrositeGitterChannel := true,
     micrositeFooterText := Some(
       "")

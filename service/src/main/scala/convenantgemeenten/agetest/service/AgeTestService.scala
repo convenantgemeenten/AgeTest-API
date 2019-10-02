@@ -136,7 +136,6 @@ object AgeTestService extends LService with TwitterServer {
 
   //  SampleData.loadSample(graph).runSyncUnsafe()(monix.execution.Scheduler.global, CanBlock.permit)
   UtilsApi.reset.runToFuture
-  //  println(SigmaJsVisualizer.visualizeGraph(graph))
   HaalCentraal.backend //eagerly init HaalCentraal
 
   lazy val create: Endpoint[IO, Node] = {

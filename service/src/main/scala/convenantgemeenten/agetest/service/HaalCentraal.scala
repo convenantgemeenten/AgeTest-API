@@ -88,7 +88,7 @@ object HaalCentraal {
   val hcConfig = HCConfig.hcConfig
 
   def haalcentraal_get_birthDate_request(ageTest: AgeTest): Task[Boolean] = {
-    val bsn = ageTest.person.reverse.takeWhile(_ != '_').reverse
+    val bsn = ageTest.subject.reverse.takeWhile(_ != '_').reverse
     val request = sttp
       .get(uri"${hcConfig.url}/ingeschrevenpersonen/$bsn/?fields=geboorte")
       .header("x-api-key", hcConfig.xApiKey.value, true)

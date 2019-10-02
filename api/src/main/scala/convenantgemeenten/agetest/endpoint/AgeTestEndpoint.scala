@@ -32,7 +32,7 @@ object AgeTestEndpoint {
 
   lazy val activeContext = ActiveContext(
     `@prefix` = ListMap(
-      "person" -> AgeTest.keys.person.iri,
+      "subject" -> AgeTest.keys.subject.iri,
       "minimumAge" -> AgeTest.keys.minimumAge.iri,
       "maximumAge" -> AgeTest.keys.maximumAge.iri,
       "validOn" -> AgeTest.keys.targetDate.iri,
@@ -40,9 +40,9 @@ object AgeTestEndpoint {
       "result" -> AgeTest.keys.result.iri
     ),
     definitions = Map(
-      AgeTest.keys.person.iri -> ActiveProperty(
-        `@type` = schema.Person :: Nil,
-        property = AgeTest.keys.person)(),
+      AgeTest.keys.subject.iri -> ActiveProperty(
+        `@type` = schema.Thing :: Nil,
+        property = AgeTest.keys.subject)(),
       AgeTest.keys.minimumAge.iri -> ActiveProperty(
         `@type` = `@int` :: Nil,
         property = AgeTest.keys.minimumAge)(),
@@ -134,7 +134,7 @@ class AgeTestEndpoint[Json](ageGraph: Graph,
     val targetDate = ageTest.targetDate
       .getOrElse(LocalDate.now())
     g.N
-      .hasIri(ageTest.person)
+      .hasIri(ageTest.subject)
       .has(
         schema.birthDate,
         (ageTest.minimumAge, ageTest.maximumAge) match {

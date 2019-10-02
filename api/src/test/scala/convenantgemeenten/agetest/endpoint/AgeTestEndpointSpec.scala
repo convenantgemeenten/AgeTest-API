@@ -18,7 +18,9 @@ import lspace.services.LApplication
 import lspace.structure.Graph
 import lspace.util.SampleGraph
 import monix.eval.Task
-import org.scalatest.{AsyncWordSpec, BeforeAndAfterAll, FutureOutcome, Matchers}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
+import org.scalatest.{BeforeAndAfterAll, FutureOutcome}
 import shapeless.{:+:, CNil}
 
 class AgeTestEndpointSpec

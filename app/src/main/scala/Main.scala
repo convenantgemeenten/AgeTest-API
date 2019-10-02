@@ -24,7 +24,7 @@ object Main extends App {
       |    </style>
       |  </head>
       |  <body>
-      |    <redoc spec-url='https://raw.githubusercontent.com/convenantgemeenten/Agetest-API/master/openapi.yaml'></redoc>
+      |    <redoc spec-url='https://raw.githubusercontent.com/convenantgemeenten/AgeTest-API/master/openapi.yaml'></redoc>
       |    <script src="https://cdn.jsdelivr.net/npm/redoc@next/bundles/redoc.standalone.js"> </script>
       |  </body>
       |</html>

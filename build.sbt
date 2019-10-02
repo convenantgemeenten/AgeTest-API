@@ -98,7 +98,6 @@ lazy val service = (project in file("service"))
     WebKeys.packagePrefix in Assets := "public/",
     managedClasspath in Runtime += (packageBin in Assets).value,
     Compile / run / fork := true,
-//    unmanagedClasspath in Runtime += (packageBin in Assets).value,
     mainClass in Compile := Some("convenantgemeenten.agetest.service.AgeTestService"),
     topLevelDirectory := None, // Don't add a root folder to the archive
     dockerBaseImage := "openjdk:11-jre",

@@ -15,17 +15,17 @@ object AgeTest
       "https://ns.convenantgemeenten.nl/AgeTest",
       label = "Age test",
       comment =
-        "An age test is an assertion whether a person satisfies certain age constraints.",
+        "An age test is an assertion whether a subject satisfies certain age constraints.",
       labels = Map("nl" -> "Leeftijdstoets"),
       comments = Map(
-        "nl" -> "Een leeftijdstoets is een toetst of een persoon aan bepaalde leeftijdskenmerken voldoet."),
+        "nl" -> "Een leeftijdstoets is een toetst of een subject aan bepaalde leeftijdskenmerken voldoet."),
       `@extends` = () => Test :: Nil
     ) {
   object keys extends Test.Properties {
-    object person
-        extends PropertyDef(ontology.iri + "/person",
-                            label = "person",
-                            `@range` = () => schema.Person.ontology :: Nil)
+    object subject
+        extends PropertyDef(ontology.iri + "/subject",
+                            label = "subject",
+                            `@range` = () => schema.Thing.ontology :: Nil)
 
     object minimumAge
         extends PropertyDef(
@@ -63,9 +63,9 @@ object AgeTest
       : TypedProperty[Boolean] = result as Label.D.`@boolean`
   }
   override lazy val properties
-    : List[Property] = keys.person.property :: keys.minimumAge.property :: keys.maximumAge.property :: keys.targetDate.property :: keys.result.property :: Test.properties
+    : List[Property] = keys.subject.property :: keys.minimumAge.property :: keys.maximumAge.property :: keys.targetDate.property :: keys.result.property :: Test.properties
   trait Properties extends Test.Properties {
-    lazy val person = keys.person
+    lazy val person = keys.subject
     lazy val result = keys.result
     lazy val minimumAge = keys.minimumAge
     lazy val maximumAge = keys.maximumAge
@@ -76,7 +76,7 @@ object AgeTest
 
   def fromNode(node: Node): AgeTest = {
     AgeTest(
-      node.outE(keys.person.property).head.to.iri,
+      node.outE(keys.subject.property).head.to.iri,
       node.out(keys.minimumAgeInt).headOption,
       node.out(keys.maximumAgeInt).headOption,
       node.out(keys.targetDateDate).headOption,
@@ -91,8 +91,8 @@ object AgeTest
       node <- cc.id
         .map(DetachedGraph.nodes.upsert(_, ontology))
         .getOrElse(DetachedGraph.nodes.create(ontology))
-      person <- DetachedGraph.nodes.upsert(cc.person, Set[String]())
-      _ <- node --- keys.person --> person
+      subject <- DetachedGraph.nodes.upsert(cc.subject, Set[String]())
+      _ <- node --- keys.subject --> subject
       _ <- cc.minimumAge
         .map(node --- keys.minimumAge --> _)
         .getOrElse(Task.unit)
@@ -129,14 +129,14 @@ object AgeTest
   def apply(person: String, targetDate: LocalDate): AgeTestFactory =
     apply(person, Some(targetDate))
 
-  def apply(person: String,
+  def apply(subject: String,
             minimumAge: Option[Int],
             maximumAge: Option[Int],
             targetDate: Option[LocalDate],
             executedOn: Option[Instant],
             result: Option[Boolean],
             id: Option[String]): AgeTest =
-    new AgeTest(person,
+    new AgeTest(subject,
                 minimumAge,
                 maximumAge,
                 targetDate,
@@ -144,7 +144,7 @@ object AgeTest
                 result,
                 id)
 }
-case class AgeTest private (person: String,
+case class AgeTest private (subject: String,
                             minimumAge: Option[Int],
                             maximumAge: Option[Int],
                             targetDate: Option[LocalDate] = None,
